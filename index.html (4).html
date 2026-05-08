@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel ADM · Facilities</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --bg:#F2F4F7;--surface:#fff;--surface2:#F8F9FB;--border:#E4E8EF;
+  --accent:#1C6EF2;--accent-light:#EBF2FF;
+  --danger:#E03E2D;--danger-light:#FEF0EE;
+  --warning:#D97706;--warning-light:#FFFBEB;
+  --ok:#059669;--ok-light:#ECFDF5;
+  --text:#111827;--text2:#6B7280;--text3:#9CA3AF;
+  --radius:14px;--radius-sm:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* HEADER */
+.adm-header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;position:sticky;top:0;z-index:20;}
+.adm-title{font-size:22px;font-weight:800;letter-spacing:-.5px;}
+.adm-title span{color:var(--accent);}
+.adm-title small{font-size:11px;font-weight:500;color:var(--text3);margin-left:8px;font-family:'JetBrains Mono',monospace;}
+.header-actions{display:flex;gap:10px;flex-wrap:wrap;}
+
+/* BOTÕES */
+.btn{border:none;border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;padding:10px 18px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:#1559cc;}
+.btn-danger{background:var(--danger);color:#fff;}.btn-danger:hover{background:#b32b1c;}
+.btn-ok{background:var(--ok);color:#fff;}.btn-ok:hover{background:#047752;}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text2);}.btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+.btn-warning{background:var(--warning);color:#fff;}
+
+/* DASHBOARD */
+.dashboard{padding:24px 28px;max-width:1200px;margin:0 auto;}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);border-left:4px solid;}
+.stat-card.total{border-color:var(--accent);}
+.stat-card.pend{border-color:var(--warning);}
+.stat-card.andamento{border-color:var(--accent);}
+.stat-card.conc{border-color:var(--ok);}
+.stat-card.vistorias{border-color:#8B5CF6;}
+.stat-num{font-size:32px;font-weight:800;line-height:1;}
+.stat-label{font-size:11px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:.6px;font-weight:600;}
+.stat-card.total .stat-num{color:var(--accent);}
+.stat-card.pend .stat-num{color:var(--warning);}
+.stat-card.andamento .stat-num{color:var(--accent);}
+.stat-card.conc .stat-num{color:var(--ok);}
+.stat-card.vistorias .stat-num{color:#8B5CF6;}
+
+/* FILTROS */
+.filters-bar{background:var(--surface);border-radius:var(--radius);padding:14px 20px;box-shadow:var(--shadow);margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.filter-field{display:flex;flex-direction:column;gap:4px;min-width:140px;}
+.filter-label{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;}
+.filter-input{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Outfit',sans-serif;font-size:13px;color:var(--text);padding:7px 10px;outline:none;transition:border-color .2s;}
+.filter-input:focus{border-color:var(--accent);}
+
+/* TABELA */
+.table-wrap{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:24px;}
+.table-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.table-title{font-size:14px;font-weight:700;color:var(--text);}
+.table-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);}
+table{width:100%;border-collapse:collapse;}
+th{background:var(--surface2);padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--surface2);}
+.td-desc{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.td-photo{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;}
+.td-nophoto{width:44px;height:44px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text3);}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.3px;white-space:nowrap;}
+.badge-alta{background:var(--danger-light);color:var(--danger);}
+.badge-media{background:var(--warning-light);color:var(--warning);}
+.badge-baixa{background:var(--ok-light);color:var(--ok);}
+.badge-pendente{background:var(--warning-light);color:var(--warning);}
+.badge-andamento{background:var(--accent-light);color:var(--accent);}
+.badge-concluido{background:var(--ok-light);color:var(--ok);}
+
+/* IMPORT ZONE */
+.import-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);margin-bottom:24px;}
+.import-zone:hover,.import-zone.drag{border-color:var(--accent);background:var(--accent-light);}
+.import-zone input{display:none;}
+.import-icon{font-size:40px;margin-bottom:12px;}
+.import-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.import-sub{font-size:13px;color:var(--text3);}
+
+/* EMPTY */
+.empty{text-align:center;padding:60px 20px;color:var(--text3);}
+.empty-icon{font-size:48px;margin-bottom:12px;}
+.empty-title{font-size:16px;font-weight:700;color:var(--text2);margin-bottom:6px;}
+
+/* HISTORICO VISTORIAS */
+.vistoria-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;}
+.vistoria-card-header{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;cursor:pointer;transition:background .15s;}
+.vistoria-card-header:hover{background:var(--surface2);}
+.vistoria-info{flex:1;}
+.vistoria-name{font-size:14px;font-weight:700;color:var(--text);}
+.vistoria-meta{font-size:11px;color:var(--text3);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;}
+.vistoria-actions{display:flex;gap:8px;}
+.vistoria-occ-count{display:flex;gap:6px;}
+.vcount{font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px;}
+
+/* LIGHTBOX */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;align-items:center;justify-content:center;}
+.lightbox.open{display:flex;}
+.lightbox img{max-width:92vw;max-height:88vh;border-radius:8px;object-fit:contain;}
+.lb-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;background:var(--surface2);border-radius:var(--radius-sm);padding:4px;margin-bottom:20px;}
+.tab{flex:1;padding:8px;text-align:center;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;color:var(--text2);border:none;background:transparent;font-family:'Outfit',sans-serif;}
+.tab.active{background:var(--surface);color:var(--accent);box-shadow:var(--shadow);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+@media(max-width:600px){
+  .adm-header{padding:12px 16px;}
+  .dashboard{padding:16px;}
+  th,td{padding:8px 10px;}
+}
+</style>
+</head>
+<body>
+
+<div class="adm-header">
+  <div class="adm-title">Painel <span>ADM</span> <small>Facilities · Histórico</small></div>
+  <div class="header-actions">
+    <button class="btn btn-outline" onclick="document.getElementById('import-input-top').click()">📥 Importar Vistoria</button>
+    <input type="file" id="import-input-top" accept=".json" multiple style="display:none" onchange="importarArquivos(this)">
+    <button class="btn btn-ok" onclick="gerarRelatorio()">📄 Relatório PDF</button>
+    <button class="btn btn-primary" onclick="exportarExcelCompleto()">📊 Exportar Excel</button>
+    <button class="btn btn-outline" onclick="limparHistorico()" style="color:var(--danger);border-color:var(--danger)">🗑 Limpar</button>
+  </div>
+</div>
+
+<div class="dashboard">
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card vistorias"><div class="stat-num" id="s-vistorias">0</div><div class="stat-label">Vistorias</div></div>
+    <div class="stat-card total"><div class="stat-num" id="s-total">0</div><div class="stat-label">Ocorrências</div></div>
+    <div class="stat-card pend"><div class="stat-num" id="s-pend">0</div><div class="stat-label">Pendentes</div></div>
+    <div class="stat-card andamento"><div class="stat-num" id="s-and">0</div><div class="stat-label">Em andamento</div></div>
+    <div class="stat-card conc"><div class="stat-num" id="s-conc">0</div><div class="stat-label">Concluídos</div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('ocorrencias',this)">📋 Ocorrências</button>
+    <button class="tab" onclick="setTab('vistorias',this)">📁 Vistorias</button>
+  </div>
+
+  <!-- TAB OCORRENCIAS -->
+  <div id="tab-ocorrencias">
+    <!-- FILTROS -->
+    <div class="filters-bar">
+      <div class="filter-field">
+        <span class="filter-label">Galpão</span>
+        <select class="filter-input" id="f-galpao" onchange="renderTabela()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <span class="filter-label">Seção</span>
+        <select class="filter-input" id="f-secao" onchange="renderTabela()">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <span class="filter-label">Prioridade</span>
+        <select class="filter-input" id="f-prio" onchange="renderTabela()">
+          <option value="">Todas</option>
+          <option>ALTA</option><option>MÉDIA</option><option>BAIXA</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <span class="filter-label">Situação</span>
+        <select class="filter-input" id="f-sit" onchange="renderTabela()">
+          <option value="">Todas</option>
+          <option value="pendente">Pendente</option>
+          <option value="andamento">Em andamento</option>
+          <option value="concluido">Concluído</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <span class="filter-label">Buscar</span>
+        <input class="filter-input" id="f-busca" placeholder="Descrição, setor..." oninput="renderTabela()">
+      </div>
+      <button class="btn btn-outline" onclick="limparFiltros()" style="align-self:flex-end;">Limpar filtros</button>
+    </div>
+
+    <!-- TABELA -->
+    <div class="table-wrap">
+      <div class="table-header">
+        <span class="table-title">Todas as ocorrências</span>
+        <span class="table-count" id="table-count">0 registros</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Foto</th>
+              <th>Data</th>
+              <th>Galpão</th>
+              <th>Seção</th>
+              <th>Setor/Local</th>
+              <th>Descrição</th>
+              <th>Prioridade</th>
+              <th>Situação</th>
+              <th>Nº OS</th>
+              <th>Inspetor</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-body"></tbody>
+        </table>
+      </div>
+      <div id="tabela-empty" class="empty" style="display:none;">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">Nenhuma ocorrência encontrada</div>
+        <div>Ajuste os filtros ou importe uma vistoria.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB VISTORIAS -->
+  <div id="tab-vistorias" style="display:none;">
+    <div id="vistorias-list">
+      <div class="empty">
+        <div class="empty-icon">📁</div>
+        <div class="empty-title">Nenhuma vistoria importada</div>
+        <div>Use o botão "Importar Vistoria" para começar.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPORT ZONE (mostra só quando vazio) -->
+  <div id="import-zone-main" style="display:none;">
+    <label class="import-zone" id="drop-zone">
+      <input type="file" accept=".json" multiple onchange="importarArquivos(this)">
+      <div class="import-icon">📥</div>
+      <div class="import-title">Importar vistorias</div>
+      <div class="import-sub">Arraste arquivos .json aqui ou clique para escolher<br>Os arquivos são gerados pelo app de vistoria no celular</div>
+    </label>
+  </div>
+
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lb-close">✕</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<script>
+// ── ESTADO ───────────────────────────────────────────────────────────
+const STORAGE_KEY = 'facilities_adm_historico_v1';
+let historico = []; // array de vistoriaObj
+
+function salvarStorage() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(historico)); } catch(e) {}
+}
+function carregarStorage() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) historico = JSON.parse(s);
+  } catch(e) { historico = []; }
+}
+
+// ── IMPORTAR ─────────────────────────────────────────────────────────
+function importarArquivos(input) {
+  const files = Array.from(input.files);
+  let ok = 0;
+  files.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const obj = JSON.parse(e.target.result);
+        if (!obj.vistoria || !obj.ocorrencias) throw new Error('Formato inválido');
+        // Evita duplicata pelo ID (exportadoEm + galpão)
+        const uid = obj.exportadoEm + '|' + obj.vistoria.galpao;
+        if (!historico.find(v => (v.exportadoEm + '|' + v.vistoria.galpao) === uid)) {
+          historico.push(obj);
+          ok++;
+        }
+        if (ok > 0) {
+          salvarStorage();
+          atualizarTudo();
+          alert(`✅ ${ok} vistoria(s) importada(s) com sucesso!`);
+        } else {
+          alert('Esta vistoria já estava no histórico.');
+        }
+      } catch(err) {
+        alert('Erro ao importar arquivo: ' + f.name + '\n' + err.message);
+      }
+    };
+    reader.readAsText(f);
+  });
+  input.value = '';
+}
+
+// ── DRAG AND DROP ─────────────────────────────────────────────────────
+function setupDrop() {
+  const zone = document.getElementById('drop-zone');
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.json'));
+    if (files.length) importarArquivos({ files, value: '' });
+  });
+}
+
+// ── ATUALIZAR TUDO ────────────────────────────────────────────────────
+function atualizarTudo() {
+  atualizarStats();
+  atualizarFiltros();
+  renderTabela();
+  renderVistorias();
+  document.getElementById('import-zone-main').style.display = historico.length ? 'none' : 'block';
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────
+function atualizarStats() {
+  const todas = todasOcorrencias();
+  document.getElementById('s-vistorias').textContent = historico.length;
+  document.getElementById('s-total').textContent     = todas.length;
+  document.getElementById('s-pend').textContent      = todas.filter(o => o.situacao === 'pendente').length;
+  document.getElementById('s-and').textContent       = todas.filter(o => o.situacao === 'andamento').length;
+  document.getElementById('s-conc').textContent      = todas.filter(o => o.situacao === 'concluido').length;
+}
+
+function todasOcorrencias() {
+  const result = [];
+  historico.forEach(v => {
+    v.ocorrencias.forEach(occ => {
+      result.push({ ...occ, _galpao: v.vistoria.galpao, _inspetor: v.vistoria.inspetor, _data: v.vistoria.data, _turno: v.vistoria.turno });
+    });
+  });
+  return result;
+}
+
+// ── FILTROS ───────────────────────────────────────────────────────────
+function atualizarFiltros() {
+  const galpoes = [...new Set(historico.map(v => v.vistoria.galpao).filter(Boolean))].sort();
+  const secoes  = [...new Set(todasOcorrencias().map(o => o.secao).filter(Boolean))].sort();
+
+  const fg = document.getElementById('f-galpao');
+  const fs = document.getElementById('f-secao');
+  const vg = fg.value; const vs = fs.value;
+
+  fg.innerHTML = '<option value="">Todos</option>' + galpoes.map(g => `<option>${g}</option>`).join('');
+  fs.innerHTML = '<option value="">Todas</option>' + secoes.map(s => `<option>${s}</option>`).join('');
+
+  fg.value = vg; fs.value = vs;
+}
+
+function limparFiltros() {
+  ['f-galpao','f-secao','f-prio','f-sit','f-busca'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  renderTabela();
+}
+
+function filtrarOcorrencias() {
+  const fg = document.getElementById('f-galpao').value;
+  const fs = document.getElementById('f-secao').value;
+  const fp = document.getElementById('f-prio').value;
+  const fi = document.getElementById('f-sit').value;
+  const fb = document.getElementById('f-busca').value.toLowerCase();
+
+  return todasOcorrencias().filter(o => {
+    if (fg && o._galpao !== fg) return false;
+    if (fs && o.secao   !== fs) return false;
+    if (fp && o.prio    !== fp) return false;
+    if (fi && o.situacao !== fi) return false;
+    if (fb && !( (o.desc||'').toLowerCase().includes(fb) || (o.setor||'').toLowerCase().includes(fb) )) return false;
+    return true;
+  });
+}
+
+// ── TABELA ────────────────────────────────────────────────────────────
+function renderTabela() {
+  const occs = filtrarOcorrencias();
+  const tbody = document.getElementById('tabela-body');
+  document.getElementById('table-count').textContent = occs.length + ' registros';
+  document.getElementById('tabela-empty').style.display = occs.length ? 'none' : 'block';
+
+  tbody.innerHTML = '';
+  occs.forEach(occ => {
+    const sitLabel = occ.situacao === 'concluido' ? 'Concluído' : occ.situacao === 'andamento' ? 'Em andamento' : 'Pendente';
+    const sitClass = 'badge badge-' + occ.situacao;
+    const prioClass = 'badge badge-' + (occ.prio || '').toLowerCase().replace('é','e');
+    const foto = (occ.photos && occ.photos.length)
+      ? `<img class="td-photo" src="${occ.photos[0]}" onclick="openLightbox('${occ.photos[0]}')" title="Ver foto">`
+      : `<div class="td-nophoto">📷</div>`;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${foto}</td>
+      <td style="white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:11px;">${occ._data || '—'}</td>
+      <td style="white-space:nowrap;">${occ._galpao || '—'}</td>
+      <td style="white-space:nowrap;">${(occ.secaoIcon||'') + ' ' + (occ.secao||'—')}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${occ.setor || '—'}</td>
+      <td class="td-desc" title="${occ.desc||''}">${occ.desc || '—'}</td>
+      <td><span class="${prioClass}">${occ.prio || '—'}</span></td>
+      <td><span class="${sitClass}">${sitLabel}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;">${occ.os || '—'}</td>
+      <td>${occ._inspetor || '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── VISTORIAS ─────────────────────────────────────────────────────────
+function renderVistorias() {
+  const container = document.getElementById('vistorias-list');
+  if (!historico.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📁</div><div class="empty-title">Nenhuma vistoria importada</div><div>Use o botão "Importar Vistoria" para começar.</div></div>`;
+    return;
+  }
+  container.innerHTML = '';
+  [...historico].reverse().forEach((v, ri) => {
+    const idx = historico.length - 1 - ri;
+    const occs = v.ocorrencias || [];
+    const pend = occs.filter(o => o.situacao === 'pendente').length;
+    const and  = occs.filter(o => o.situacao === 'andamento').length;
+    const conc = occs.filter(o => o.situacao === 'concluido').length;
+
+    const card = document.createElement('div');
+    card.className = 'vistoria-card';
+    card.innerHTML = `
+      <div class="vistoria-card-header">
+        <div class="vistoria-info">
+          <div class="vistoria-name">📁 ${v.vistoria.galpao || 'Galpão'} — ${v.vistoria.data || '—'}</div>
+          <div class="vistoria-meta">
+            <span>👤 ${v.vistoria.inspetor || '—'}</span>
+            <span>🕐 ${v.vistoria.turno || '—'}</span>
+            <span>📋 ${v.vistoria.tipo || '—'}</span>
+            <span style="font-family:'JetBrains Mono',monospace;">Importado: ${new Date(v.exportadoEm).toLocaleString('pt-BR')}</span>
+          </div>
+          <div class="vistoria-occ-count" style="margin-top:6px;">
+            <span class="vcount" style="background:var(--warning-light);color:var(--warning);">⏳ ${pend} pendente${pend!==1?'s':''}</span>
+            <span class="vcount" style="background:var(--accent-light);color:var(--accent);">🔧 ${and} andamento</span>
+            <span class="vcount" style="background:var(--ok-light);color:var(--ok);">✓ ${conc} concluído${conc!==1?'s':''}</span>
+          </div>
+        </div>
+        <div class="vistoria-actions">
+          <button class="btn btn-ok" style="font-size:12px;padding:7px 12px;" onclick="gerarRelatorioVistoria(${idx})">📄 PDF</button>
+          <button class="btn btn-outline" style="font-size:12px;padding:7px 12px;color:var(--danger);border-color:var(--danger);" onclick="excluirVistoria(${idx})">🗑</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────
+function setTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-ocorrencias').style.display = tab === 'ocorrencias' ? 'block' : 'none';
+  document.getElementById('tab-vistorias').style.display   = tab === 'vistorias'   ? 'block' : 'none';
+}
+
+// ── EXCLUIR VISTORIA ──────────────────────────────────────────────────
+function excluirVistoria(idx) {
+  if (!confirm('Excluir esta vistoria do histórico?')) return;
+  historico.splice(idx, 1);
+  salvarStorage();
+  atualizarTudo();
+}
+
+function limparHistorico() {
+  if (!confirm('Apagar TODO o histórico de vistorias? Esta ação não pode ser desfeita.')) return;
+  historico = [];
+  salvarStorage();
+  atualizarTudo();
+}
+
+// ── GERAR PDF (todas as ocorrências filtradas) ────────────────────────
+function gerarRelatorio() {
+  const occs  = filtrarOcorrencias();
+  const total = occs.length;
+  const pend  = occs.filter(o => o.situacao === 'pendente').length;
+  const and   = occs.filter(o => o.situacao === 'andamento').length;
+  const conc  = occs.filter(o => o.situacao === 'concluido').length;
+
+  const galpaoFiltro = document.getElementById('f-galpao').value || 'Todos os galpões';
+  const sitFiltro    = document.getElementById('f-sit').value;
+  const prioFiltro   = document.getElementById('f-prio').value;
+
+  // Agrupar por galpão → data
+  const grupos = {};
+  occs.forEach(o => {
+    const k = (o._galpao || '—') + '|' + (o._data || '—');
+    if (!grupos[k]) grupos[k] = { galpao: o._galpao, data: o._data, inspetor: o._inspetor, occs: [] };
+    grupos[k].occs.push(o);
+  });
+
+  let bodyHtml = '';
+  Object.values(grupos).forEach(g => {
+    bodyHtml += `
+      <div style="margin-bottom:24px;page-break-inside:avoid;">
+        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
+          color:#1C6EF2;border-bottom:2px solid #1C6EF2;padding-bottom:6px;margin-bottom:12px;">
+          🏭 ${g.galpao} · ${g.data} · ${g.inspetor}
+        </div>`;
+    g.occs.forEach(occ => {
+      const prioColor = occ.prio==='ALTA'?'#E03E2D':occ.prio==='MÉDIA'?'#D97706':'#059669';
+      const sitColor  = occ.situacao==='concluido'?'#059669':occ.situacao==='andamento'?'#1C6EF2':'#D97706';
+      const sitLabel  = occ.situacao==='concluido'?'✓ Concluído':occ.situacao==='andamento'?'🔧 Em andamento':'⏳ Pendente';
+
+      let fotosHtml = '';
+      if (occ.photos && occ.photos.length) {
+        fotosHtml = `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">`;
+        occ.photos.forEach(src => {
+          fotosHtml += `<img src="${src}" style="width:100px;height:100px;object-fit:cover;border-radius:6px;border:1px solid #E4E8EF;">`;
+        });
+        fotosHtml += `</div>`;
+      }
+
+      bodyHtml += `
+        <div style="background:#F8F9FB;border-radius:8px;padding:12px 14px;margin-bottom:8px;
+          border-left:4px solid ${sitColor};page-break-inside:avoid;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:5px;">${occ.desc || '(sem descrição)'}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;align-items:center;">
+                <span style="background:${prioColor}22;color:${prioColor};border-radius:4px;padding:1px 7px;font-weight:700;">${occ.prio}</span>
+                <span style="color:${sitColor};font-weight:700;">${sitLabel}</span>
+                ${occ.setor ? `<span style="color:#6B7280;">📍 ${occ.setor}</span>` : ''}
+                ${occ.secao ? `<span style="color:#6B7280;">${occ.secaoIcon||''} ${occ.secao}</span>` : ''}
+              </div>
+            </div>
+            <div style="text-align:right;font-size:11px;color:#9CA3AF;font-family:monospace;white-space:nowrap;">
+              🔖 OS: ${occ.os || '—'}
+            </div>
+          </div>
+          ${fotosHtml}
+        </div>`;
+    });
+    bodyHtml += `</div>`;
+  });
+
+  if (!bodyHtml) bodyHtml = `<div style="text-align:center;padding:60px;color:#9CA3AF;">Nenhuma ocorrência encontrada com os filtros aplicados.</div>`;
+
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
+    <meta charset="UTF-8">
+    <title>Relatório Facilities</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:Arial,sans-serif;color:#111827;background:#fff;padding:32px;font-size:12px;}
+      @media print{body{padding:0;} .no-print{display:none;} @page{margin:14mm;size:A4;}}
+    </style>
+  </head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;
+      margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #1C6EF2;">
+      <div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.5px;">
+          Relatório <span style="color:#1C6EF2;">Facilities</span>
+        </div>
+        <div style="font-size:12px;color:#6B7280;margin-top:4px;">
+          ${galpaoFiltro}
+          ${sitFiltro ? ' · Situação: '+sitFiltro : ''}
+          ${prioFiltro ? ' · Prioridade: '+prioFiltro : ''}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:#9CA3AF;">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+        <div style="font-size:11px;color:#9CA3AF;">${historico.length} vistoria(s) no histórico</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap;">
+      <div style="padding:10px 20px;background:#EBF2FF;border-radius:8px;font-weight:800;font-size:18px;color:#1C6EF2;">Total: ${total}</div>
+      <div style="padding:10px 20px;background:#FFFBEB;border-radius:8px;font-weight:800;font-size:18px;color:#D97706;">⏳ ${pend} Pendentes</div>
+      <div style="padding:10px 20px;background:#EBF2FF;border-radius:8px;font-weight:800;font-size:18px;color:#1C6EF2;">🔧 ${and} Em andamento</div>
+      <div style="padding:10px 20px;background:#ECFDF5;border-radius:8px;font-weight:800;font-size:18px;color:#059669;">✓ ${conc} Concluídos</div>
+    </div>
+
+    ${bodyHtml}
+
+    <div style="margin-top:32px;padding-top:12px;border-top:1px solid #E4E8EF;font-size:10px;color:#9CA3AF;text-align:center;">
+      Facilities · Painel ADM · Gerado em ${new Date().toLocaleDateString('pt-BR')}
+    </div>
+
+    <div class="no-print" style="text-align:center;margin-top:28px;">
+      <button onclick="window.print()" style="background:#1C6EF2;color:#fff;border:none;border-radius:8px;
+        padding:14px 40px;font-size:15px;font-weight:700;cursor:pointer;">🖨 Imprimir / Salvar PDF</button>
+    </div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => win.focus(), 300);
+}
+
+// ── PDF DE UMA VISTORIA ESPECÍFICA ────────────────────────────────────
+function gerarRelatorioVistoria(idx) {
+  const v = historico[idx];
+  if (!v) return;
+
+  // Filtra temporariamente só essa vistoria
+  const tempHistorico = historico;
+  historico = [v];
+  document.getElementById('f-galpao').value = '';
+  document.getElementById('f-secao').value  = '';
+  document.getElementById('f-prio').value   = '';
+  document.getElementById('f-sit').value    = '';
+  document.getElementById('f-busca').value  = '';
+  gerarRelatorio();
+  historico = tempHistorico;
+}
+
+// ── EXPORT EXCEL ──────────────────────────────────────────────────────
+function exportarExcelCompleto() {
+  const occs = filtrarOcorrencias();
+  const rows = [['Data','Galpão','Inspetor','Turno','Seção','Setor/Local','Descrição','Prioridade','Situação','Nº OS','Fotos']];
+  occs.forEach(o => {
+    rows.push([
+      o._data||'', o._galpao||'', o._inspetor||'', o._turno||'',
+      o.secao||'', o.setor||'', o.desc||'', o.prio||'',
+      o.situacao==='concluido'?'Concluído':o.situacao==='andamento'?'Em andamento':'Pendente',
+      o.os||'', (o.photos||[]).length + ' foto(s)'
+    ]);
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [12,22,20,10,24,20,38,10,14,16,10].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Ocorrências');
+  XLSX.writeFile(wb, `Historico_Facilities_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ── LIGHTBOX ──────────────────────────────────────────────────────────
+function openLightbox(src) {
+  document.getElementById('lb-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// ── INIT ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  carregarStorage();
+  atualizarTudo();
+  setupDrop();
+});
+</script>
+</body>
+</html>
