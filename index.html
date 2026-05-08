@@ -108,7 +108,46 @@ tr:hover td{background:var(--surface2);}
 .vistoria-occ-count{display:flex;gap:6px;}
 .vcount{font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px;}
 
-/* LIGHTBOX */
+/* CAMPOS EDITÁVEIS NA TABELA */
+.td-sit-select {
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 6px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .2s;
+  background: var(--surface2);
+  color: var(--text);
+  width: 130px;
+}
+.td-sit-select:focus { border-color: var(--accent); }
+.td-sit-select.pendente  { background: var(--warning-light); color: var(--warning); border-color: var(--warning); }
+.td-sit-select.andamento { background: var(--accent-light);  color: var(--accent);  border-color: var(--accent); }
+.td-sit-select.concluido { background: var(--ok-light);      color: var(--ok);      border-color: var(--ok); }
+
+.td-os-input {
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 4px 8px;
+  outline: none;
+  transition: border-color .2s;
+  background: var(--surface2);
+  color: var(--text);
+  width: 130px;
+}
+.td-os-input:focus { border-color: var(--accent); background: #fff; }
+.td-os-input::placeholder { color: var(--text3); }
+
+.td-saved-flash { animation: flashGreen .6s ease; }
+@keyframes flashGreen {
+  0%   { background: var(--ok-light); }
+  100% { background: transparent; }
+}
 .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;align-items:center;justify-content:center;}
 .lightbox.open{display:flex;}
 .lightbox img{max-width:92vw;max-height:88vh;border-radius:8px;object-fit:contain;}
@@ -343,9 +382,9 @@ function atualizarStats() {
 
 function todasOcorrencias() {
   const result = [];
-  historico.forEach(v => {
-    v.ocorrencias.forEach(occ => {
-      result.push({ ...occ, _galpao: v.vistoria.galpao, _inspetor: v.vistoria.inspetor, _data: v.vistoria.data, _turno: v.vistoria.turno });
+  historico.forEach((v, vi) => {
+    v.ocorrencias.forEach((occ, oi) => {
+      result.push({ ...occ, _galpao: v.vistoria.galpao, _inspetor: v.vistoria.inspetor, _data: v.vistoria.data, _turno: v.vistoria.turno, _vi: vi, _oi: oi });
     });
   });
   return result;
@@ -399,28 +438,64 @@ function renderTabela() {
 
   tbody.innerHTML = '';
   occs.forEach(occ => {
-    const sitLabel = occ.situacao === 'concluido' ? 'Concluído' : occ.situacao === 'andamento' ? 'Em andamento' : 'Pendente';
-    const sitClass = 'badge badge-' + occ.situacao;
     const prioClass = 'badge badge-' + (occ.prio || '').toLowerCase().replace('é','e');
     const foto = (occ.photos && occ.photos.length)
       ? `<img class="td-photo" src="${occ.photos[0]}" onclick="openLightbox('${occ.photos[0]}')" title="Ver foto">`
       : `<div class="td-nophoto">📷</div>`;
 
+    const vi = occ._vi;
+    const oi = occ._oi;
+    const sit = occ.situacao || 'pendente';
+    const osVal = occ.os || '';
+
     const tr = document.createElement('tr');
+    tr.id = `row-${vi}-${oi}`;
     tr.innerHTML = `
       <td>${foto}</td>
       <td style="white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:11px;">${occ._data || '—'}</td>
       <td style="white-space:nowrap;">${occ._galpao || '—'}</td>
       <td style="white-space:nowrap;">${(occ.secaoIcon||'') + ' ' + (occ.secao||'—')}</td>
-      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${occ.setor || '—'}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${occ.setor||''}">${occ.setor || '—'}</td>
       <td class="td-desc" title="${occ.desc||''}">${occ.desc || '—'}</td>
       <td><span class="${prioClass}">${occ.prio || '—'}</span></td>
-      <td><span class="${sitClass}">${sitLabel}</span></td>
-      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;">${occ.os || '—'}</td>
+      <td>
+        <select class="td-sit-select ${sit}" onchange="atualizarSituacao(${vi},${oi},this)">
+          <option value="pendente"  ${sit==='pendente'  ?'selected':''}>⏳ Pendente</option>
+          <option value="andamento" ${sit==='andamento' ?'selected':''}>🔧 Em andamento</option>
+          <option value="concluido" ${sit==='concluido' ?'selected':''}>✓ Concluído</option>
+        </select>
+      </td>
+      <td>
+        <input class="td-os-input" type="text" value="${osVal}" placeholder="Ex: OS-2026-001"
+          onchange="atualizarOS(${vi},${oi},this)"
+          onkeydown="if(event.key==='Enter')this.blur()">
+      </td>
       <td>${occ._inspetor || '—'}</td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+// ── ATUALIZAR SITUAÇÃO ────────────────────────────────────────────────
+function atualizarSituacao(vi, oi, select) {
+  const val = select.value;
+  historico[vi].ocorrencias[oi].situacao = val;
+  select.className = 'td-sit-select ' + val;
+  salvarStorage();
+  atualizarStats();
+  renderVistorias();
+  // flash na linha
+  const row = document.getElementById(`row-${vi}-${oi}`);
+  if (row) { row.classList.add('td-saved-flash'); setTimeout(() => row.classList.remove('td-saved-flash'), 700); }
+}
+
+// ── ATUALIZAR OS ──────────────────────────────────────────────────────
+function atualizarOS(vi, oi, input) {
+  historico[vi].ocorrencias[oi].os = input.value.trim();
+  salvarStorage();
+  // flash na linha
+  const row = document.getElementById(`row-${vi}-${oi}`);
+  if (row) { row.classList.add('td-saved-flash'); setTimeout(() => row.classList.remove('td-saved-flash'), 700); }
 }
 
 // ── VISTORIAS ─────────────────────────────────────────────────────────
@@ -536,16 +611,20 @@ function gerarRelatorio() {
           border-left:4px solid ${sitColor};page-break-inside:avoid;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div style="flex:1;">
-              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:5px;">${occ.desc || '(sem descrição)'}</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;align-items:center;">
-                <span style="background:${prioColor}22;color:${prioColor};border-radius:4px;padding:1px 7px;font-weight:700;">${occ.prio}</span>
-                <span style="color:${sitColor};font-weight:700;">${sitLabel}</span>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px;">${occ.desc || '(sem descrição)'}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;align-items:center;margin-bottom:4px;">
+                <span style="background:${prioColor}22;color:${prioColor};border-radius:4px;padding:2px 8px;font-weight:700;">${occ.prio}</span>
+                <span style="color:${sitColor};font-weight:700;border:1px solid ${sitColor};border-radius:4px;padding:2px 8px;">${sitLabel}</span>
                 ${occ.setor ? `<span style="color:#6B7280;">📍 ${occ.setor}</span>` : ''}
                 ${occ.secao ? `<span style="color:#6B7280;">${occ.secaoIcon||''} ${occ.secao}</span>` : ''}
               </div>
             </div>
-            <div style="text-align:right;font-size:11px;color:#9CA3AF;font-family:monospace;white-space:nowrap;">
-              🔖 OS: ${occ.os || '—'}
+            <div style="text-align:right;min-width:140px;">
+              <div style="font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Nº Ordem de Serviço</div>
+              <div style="font-family:monospace;font-size:14px;font-weight:800;color:${occ.os ? '#1C6EF2' : '#D1D5DB'};
+                background:${occ.os ? '#EBF2FF' : '#F9FAFB'};border-radius:6px;padding:4px 10px;border:1px solid ${occ.os ? '#1C6EF2' : '#E4E8EF'};">
+                ${occ.os || '— não informada —'}
+              </div>
             </div>
           </div>
           ${fotosHtml}
